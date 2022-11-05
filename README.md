@@ -57,7 +57,7 @@ STD_JSON = os.path.join(DATASET_DIR, "AP_C11_01566.json")
 
 
 ### 3) time table
-다음과 같은 에러가 발생하는 경우 터미널에 에러를 출력하고, count 집계에 반영하지 않았다.
+다음과 같은 에러가 발생하는 경우 터미널에 에러를 출력하고, time 집계에 반영하지 않았다.
 - json 파일에 대응되는 wav 파일이 존재하지 않는 경우
 - json 파일에 필요한 key 값이 없는 경우
 - json에 기록된 beat(장단), mode(음조직), singleTonguing(시김새) 코드가 잘못된 경우
