@@ -10,17 +10,6 @@ from json_utils import (
 
 import cfg
 
-# def parse_arg():
-#     parser = ArgumentParser("1. 같은 이름의 세가지 파일 [.wav, .json., .mid]이 한 세트를 이루고 있는지 확인.\n"
-#                             "2. metadata 형식에 어긋나는 json파일 검출")
-#     parser.add_argument("--dataset", '-d', type=str,
-#                         default=None)
-#     parser.add_argument("--excel_path", '-e', type=str,
-#                         default=None)
-#     parser.add_argument("--std",'-s',type=str, default="")
-#     args = parser.parse_args()
-#     return args
-
 
 NOT_ESSENTIAL_KEYS = set({
     "org_file_nm", # in ["music_source_info"]
@@ -36,6 +25,7 @@ def check_missing_files(dataset_path):
     wav_files = list(dataset_path.glob("*.wav"))
     json_files = list(dataset_path.glob("*.json"))
     mid_files = list(dataset_path.glob("*.mid"))
+    print(f"wav : {len(wav_files)}, json : {len(json_files)}, midi : {len(mid_files)}")
 
     # extension과 directory를 제외한 파일의 basename의 리스트로 변환
     for i, wav in enumerate(wav_files):
@@ -77,7 +67,7 @@ def check_error_jsons(dataset_path, std_json_path):
             error_json_files.append(json_file.name)
 
     
-    return pd.DataFrame(error_json_files,columns=["에러파일목록"])
+    return pd.DataFrame(error_json_files,columns=["invalid_json파일"])
 
 
 if __name__ == "__main__":
@@ -86,10 +76,11 @@ if __name__ == "__main__":
 
     error_table = check_error_jsons(Path(cfg.DATASET_DIR), std_json_path=cfg.STD_JSON)
 
-    dataset_path = Path(cfg.DATASET_DIR)
-    excel_path = os.path.join(cfg.DATASET_DIR, dataset_path.name+".error.xlsx")
+    excel_dir = Path(cfg.DATASET_DIR).name
+    if not os.path.exists(excel_dir):
+        os.mkdir(excel_dir)
+    excel_path = os.path.join(excel_dir,f'{Path(cfg.DATASET_DIR).name}.error_missing_files_or_invalid_metadata.xlsx')
     print(excel_path)
-    writer = pd.ExcelWriter(excel_path)
-    missing_table.to_excel(writer, sheet_name="누락파일목록")
-    error_table.to_excel(writer, sheet_name="에러json파일목록")
-    writer.save()
+    with pd.ExcelWriter(excel_path) as writer:
+        missing_table.to_excel(writer, sheet_name="누락파일목록")
+        error_table.to_excel(writer, sheet_name="invalid_json파일목록")

@@ -2,9 +2,11 @@ import matplotlib.pyplot as plt
 from json_utils import (
     json2list
 )
+import cfg
+import os
+from pathlib import Path
 
-
-json_list = json2list("221011")
+json_list = json2list(cfg.DATASET_DIR)
 val_list = []
 for name, json_obj in json_list.items():
     try:
@@ -25,5 +27,6 @@ for name, json_obj in json_list.items():
 if None in val_list:
     print("none exist")
 
-plt.hist(val_list, bins = 60, range=(0,600))
-plt.show()
+
+plt.hist(val_list, bins = 60, range=(0,600)), plt.title(f"{Path(cfg.DATASET_DIR).name}")
+plt.savefig(os.path.join(cfg.DATASET_DIR, "bpm_distribution.png"))
