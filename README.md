@@ -38,8 +38,8 @@ STD_JSON = os.path.join(DATASET_DIR, "AP_C11_01566.json")
 - Linux 또는 git bash 에서 실행할 경우에는 update_table.sh를 실행시킨다.
 - 또는 update_time_table.py, update_error_table.py, update_count_table.py 를 각각 실행시켜도 된다.
 
-## 실행 결과 및 생성된 테이블(*.xlsx) 보는법
-### error table
+## 실행결과 터미널 출력 및 생성된 테이블(*.xlsx) 보는법
+### 1) error table
 - 누락 파일 목록 : 하나의 데이터에 대해 wav, json, mid 파일이 모두 있어야 누락되지 않은 것으로 간주한다. 밑의 예시는 AP_F02_00332.wav, AP_F02_00332.mid 는 존재하지만 AP_F02_00332.json은 존재하지 않는 경우
 
 ![image](https://user-images.githubusercontent.com/54995090/197339674-27db3564-e881-4227-8491-678882d9e863.png)
@@ -48,9 +48,20 @@ STD_JSON = os.path.join(DATASET_DIR, "AP_C11_01566.json")
 
 ![image](https://user-images.githubusercontent.com/54995090/197339682-296fa8f2-8899-4a54-9d81-8dafb82caada.png)
 
-### time table
-- wav 파일이 열리지 않는 경우, 터미널에 메시지를 출력하도록 하였다. 
-- 따라서 집계된 결과는 wav파일이 열리지 않는 경우를 제외한 것이다.
+
+
+### 2) count table
+다음과 같은 에러가 발생하는 경우 터미널에 에러를 출력하고, count 집계에 반영하지 않았다.
+- json 키값이 다른 json 파일들과 다르거나 누락된 경우
+- json에 기록된 beat(장단), mode(음조직), singleTonguing(시김새) 코드가 잘못된 경우
+
+
+### 3) time table
+다음과 같은 에러가 발생하는 경우 터미널에 에러를 출력하고, time 집계에 반영하지 않았다.
+- json 파일에 대응되는 wav 파일이 존재하지 않는 경우
+- json 파일에 필요한 key 값이 없는 경우
+- json에 기록된 beat(장단), mode(음조직), singleTonguing(시김새) 코드가 잘못된 경우
+- wav 파일이 열리지 않는 경우
 
 ![image](https://user-images.githubusercontent.com/54995090/197447272-97c6afc8-14d0-4318-a9c0-bbaea3606ba2.png)
 
