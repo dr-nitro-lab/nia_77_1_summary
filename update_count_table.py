@@ -1,4 +1,3 @@
-from argparse import ArgumentParser
 from datetime import datetime
 from typing import Dict, Optional, Tuple, List
 
@@ -66,7 +65,6 @@ def update_table(excel_path:str):
         try:
             genre = json_dict["music_type_info"]["music_genre_cd"]
             inst = json_dict["music_type_info"]["instrument_cd"]
-            # main_inst = json_dict["music_type_info"]["main_instrmt_cd"]
             beat = json_dict["annotation_data_info"]["gukak_beat_cd"]
             mode = json_dict["annotation_data_info"]["mode_cd"]
             singleTonguings = json_dict["annotation_data_info"]["single_tonguing_cd"]
@@ -75,34 +73,26 @@ def update_table(excel_path:str):
             print(f"{json_filename} don't have key '{k}'")
             continue  # do something when wrong key detected!!
 
-        # 현재는 "instrument_cd" 또는 "main_instrmt_cd" 둘 중 하나만 채워져 있음을 반영
-        # if inst != "":
-        # if pd.isnull(total_table.loc[genre, inst]):
-        #     total_table[inst][genre] = 1
-        # else:
         total_table.loc[genre, inst] += 1
-        # elif main_inst != "":
-        #     if pd.isnull(total_table.loc[genre, main_inst]):
-        #         total_table[main_inst][genre] = 1
-        #     else:
-        #         total_table.loc[genre, main_inst] += 1
         
         try:
             beat_stat.loc[beat, "count"]+=1
         except KeyError as k:
-            print(f"KeyError has occured because '{json_filename}' has invalid beat code {k}")
+            print(f"KeyError : '{json_filename}.json' has invalid beat code {k}")
 
         try:
             mode_stat.loc[mode, "count"]+=1
         except KeyError as k:
             if inst[0]!='P':
-                print(f"KeyError has occured because '{json_filename}' has invalid mode code {k}, and has inst code '{inst}'")
+                # 악기코드가 P(타악기)로 시작하면 mode code는 empty string '' 여야 한다.
+                # 그 외의 경우에 empty string은 허용되지 않는다.
+                print(f"KeyError : '{json_filename}.json' has invalid mode code {k}, and has inst code '{inst}' (empty mode code is not permitted except for 'P(타악기)')")
 
         for singleTonguing in singleTonguings:
             try:
                 singleTonguing_stat.loc[singleTonguing["annotation_code"], "count"]+=1
             except KeyError as k:
-                print(f"{json_filename}.json has invalid single tonguing code {singleTonguing['annotation_code']}")
+                print(f"KeyError : '{json_filename}.json' has invalid single tonguing code {singleTonguing['annotation_code']}")
 
 
     # Column Multi Index 생성
@@ -115,22 +105,22 @@ def update_table(excel_path:str):
 
     total_table.columns = pd.MultiIndex.from_tuples(idx, names=["대분류","중분류","악기","소분류_코드"])
 
+    # 행(장르), 열(악기)별로 total 값 구하기
+    inst_wise_total = total_table.sum(axis=0, skipna=True)
+    genre_wise_total = total_table.sum(axis=1, skipna=True).astype('int16')
+
     # Row Multi Index 생성
     total_table["대분류"]=classJsons["genreCode2Major"].values()
     total_table["중분류"]=classJsons["genreCode2Minor"].values()
     total_table["소분류(Genre)"]=classJsons["genreCode2Name"].values()
     total_table["분류코드"]=classJsons["genreCode2Name"].keys()
         
-    # 행(장르), 열(악기)별로 total 값 구하기
-    inst_wise_total = total_table.drop(["대분류","중분류","소분류(Genre)","분류코드"],axis=1).sum(axis=0, skipna=True)
     total_table.loc['total'] = inst_wise_total
-    genre_wise_total = total_table.drop(["대분류","중분류","소분류(Genre)","분류코드"],axis=1).sum(axis=1, skipna=True).astype('int16')
     total_table['total'] = genre_wise_total
 
-    TOTAL = genre_wise_total["total"]  # 전체 total
+    TOTAL = genre_wise_total.sum() # 전체 total
 
     # 행, 열별로 백분위 % ratio(%) 구하기
-    print(TOTAL)
     inst_wise_ratio = inst_wise_total/TOTAL*100
     inst_wise_ratio =inst_wise_ratio.astype(float).round(decimals=2)
     total_table.loc['ratio(%)'] = inst_wise_ratio

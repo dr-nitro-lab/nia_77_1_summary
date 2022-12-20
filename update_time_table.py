@@ -1,4 +1,3 @@
-from argparse import ArgumentParser
 from datetime import datetime
 from typing import Dict, Optional, Tuple, List
 import os, glob
@@ -56,7 +55,7 @@ def update_table(excel_path: str):
 
     # define main DataFrame
     # col이 악기 코드, row가 장르 코드인 DataFrame 생성
-    table = pd.DataFrame(columns=inst_cd, index=genre_cd)
+    total_table = pd.DataFrame(0,columns=inst_cd, index=genre_cd)
     beat_stat = pd.DataFrame(0,columns=["대분류", "time(대분류)", "ratio(%)(대분류)", "중분류",
                              "time(중분류)", "ratio(%)(중분류)", "소분류", "time", "ratio(%)"], index=beat_cd)
     mode_stat = pd.DataFrame(0,columns=["대분류", "time(대분류)", "ratio(%)(대분류)", "소분류", "Code", "time", "ratio(%)"], index=mode_cd)
@@ -69,15 +68,13 @@ def update_table(excel_path: str):
     # Construct main table and calculate main statistics
     for json_filename, json_dict in metadatas.items():
         try:
-            wav_filename = json_dict["music_source_info"]["music_src_nm"]+'.'+json_dict["music_source_info"]["music_src_fmt"]
-            wav_filepath = os.path.join(cfg.DATASET_DIR, wav_filename)
+            wav_filepath = os.path.join(cfg.DATASET_DIR,json_filename+'.wav')
+            wav_dur = librosa.get_duration(filename=wav_filepath)
             genre = json_dict["music_type_info"]["music_genre_cd"]
             inst = json_dict["music_type_info"]["instrument_cd"]
             beat = json_dict["annotation_data_info"]["gukak_beat_cd"]
             mode = json_dict["annotation_data_info"]["mode_cd"]
             singleTonguings = json_dict["annotation_data_info"]["single_tonguing_cd"]
-            # main_inst = json_dict["music_type_info"]["main_instrmt_cd"]
-            wav_dur = librosa.get_duration(filename=wav_filepath)
 
         except FileNotFoundError:
             print(f"{wav_filepath} is not found.")
@@ -91,42 +88,30 @@ def update_table(excel_path: str):
             print(f"{json_filename} don't have key '{k}'")
             continue
 
-        # except Exception as e:
-        #     print(e)
-
-        # 현재는 "instrument_cd" 또는 "main_instrmt_cd" 둘 중 하나만 채워져 있음을 반영
         finally:
-            if inst != "":
-                if pd.isnull(table.loc[genre, inst]):
-                    table.loc[genre, inst] = wav_dur
-                else:
-                    table.loc[genre, inst] += wav_dur
-        #     elif main_inst != "":
-        #         if pd.isnull(table.loc[genre, main_inst]):
-        #             table.loc[genre, main_inst] = wav_dur
-        #         else:
-        #             table.loc[genre, main_inst] += wav_dur
+            total_table.loc[genre, inst] += wav_dur
 
         try:
             beat_stat.loc[beat,"time"]+=wav_dur
         except KeyError as k:
-            print(f"KeyError has occured because '{json_filename}' has invalid beat code {k}")
+            print(f"KeyError : '{json_filename}.json' has invalid beat code {k}")
 
         try:
             mode_stat.loc[mode, "time"]+=wav_dur
         except KeyError as k:
             if inst[0]!='P':
-                print(f"KeyError has occured because '{json_filename}' has invalid mode code {k}, and has inst code '{inst}'")
+                # 악기코드가 P(타악기)로 시작하면 mode code는 empty string '' 여야 한다.
+                # 그 외의 경우에 empty string은 허용되지 않는다.
+                print(f"KeyError : '{json_filename}.json' has invalid mode code {k}, and has inst code '{inst}' (empty mode code is not permitted except for 'P(타악기)')")
 
         for singleTonguing in singleTonguings:
             try:
                 if isinstance(singleTonguing["end_time"],str) or isinstance(singleTonguing["end_time"],str):
                     singleTonguing_stat.loc[singleTonguing["annotation_code"],"time"]+=(float(singleTonguing["end_time"])-float(singleTonguing["start_time"]))
-                    # print(f'{json_filename} has string type of time')
                 else:
                     singleTonguing_stat.loc[singleTonguing["annotation_code"],"time"]+=(singleTonguing["end_time"]-singleTonguing["start_time"])
             except KeyError as k:
-                print(f"{json_filename}.json has invalid single tonguing code {singleTonguing['annotation_code']}")
+                print(f"KeyError : '{json_filename}.json' has invalid single tonguing code '{singleTonguing['annotation_code']}'")
 
     # Column Multi Index 생성
     idx=[]
@@ -136,43 +121,44 @@ def update_table(excel_path: str):
                 classJsons["instCode2Name"].keys()):
             idx.append((M,m,n,c))
 
-    table.columns = pd.MultiIndex.from_tuples(idx, names=["대분류","중분류","악기","소분류_코드"])
+    total_table.columns = pd.MultiIndex.from_tuples(idx, names=["대분류","중분류","악기","소분류_코드"])
 
-    # Row Multi Index 생성
-    table["대분류"]=classJsons["genreCode2Major"].values()
-    table["중분류"]=classJsons["genreCode2Minor"].values()
-    table["소분류(Genre)"]=classJsons["genreCode2Name"].values()
-    table["분류코드"]=classJsons["genreCode2Name"].keys()
-        
     # 행(장르), 열(악기)별로 total 값 구하기
-    inst_wise_total = table.drop(["대분류","중분류","소분류(Genre)","분류코드"],axis=1).sum(axis=0, skipna=True)
-    table.loc['total'] = inst_wise_total
-    genre_wise_total = table.drop(["대분류","중분류","소분류(Genre)","분류코드"],axis=1).sum(axis=1, skipna=True)
-    table['total'] = genre_wise_total
+    inst_wise_total = total_table.sum(axis=0, skipna=True)
+    genre_wise_total = total_table.sum(axis=1, skipna=True)
+        
+    # Row Multi Index 생성
+    total_table["대분류"]=classJsons["genreCode2Major"].values()
+    total_table["중분류"]=classJsons["genreCode2Minor"].values()
+    total_table["소분류(Genre)"]=classJsons["genreCode2Name"].values()
+    total_table["분류코드"]=classJsons["genreCode2Name"].keys()
 
-    TOTAL = int(genre_wise_total["total"])  # 전체 total
+    total_table.loc['total'] = inst_wise_total
+    total_table['total'] = genre_wise_total
+
+    TOTAL = genre_wise_total.sum()  # 전체 total
 
     # 행, 열별로 백분위 % ratio(%) 구하기
-    print(TOTAL)
+    # print(TOTAL)
     inst_wise_ratio = inst_wise_total/TOTAL*100
     inst_wise_ratio =inst_wise_ratio.astype(float).round(decimals=2)
-    table.loc['ratio(%)'] = inst_wise_ratio
+    total_table.loc['ratio(%)'] = inst_wise_ratio
     genre_wise_ratio = genre_wise_total[:-1]/TOTAL*100
     genre_wise_ratio = genre_wise_ratio.astype(float).round(decimals=2)
-    table['ratio(%)'] = genre_wise_ratio
+    total_table['ratio(%)'] = genre_wise_ratio
 
     # 열 옮기기
     for c in ["분류코드","소분류(Genre)","중분류","대분류"]:
-        table.insert(0,c,table.pop(c))
+        total_table.insert(0,c,total_table.pop(c))
 
-    table = table.set_index(["대분류","중분류","소분류(Genre)"])
-    # table.iloc[:39,1:29] = table.iloc[:39,1:29].fillna(0).astype('int')
+    total_table = total_table.astype({i:"int" for i in idx})
+    total_table = total_table.set_index(["대분류","중분류","소분류(Genre)"])
 
+    ################################################################################
     # 악기별 통계 테이블 만들기
     inst_stat = pd.DataFrame(0,columns=["대분류", "time(대분류)", "ratio(%)(대분류)", "중분류",
                              "time(중분류)", "ratio(%)(중분류)", "악기", "소분류_코드", "time", "ratio(%)"], index=inst_cd)
-    # M stands for Major class of instrument
-    # m stands for minor class of instrument
+
     inst_stat["악기"] = inst_nm
     inst_stat["소분류_코드"] = inst_cd
     inst_stat["중분류"] = np.array(list(classJsons["instCode2Minor"].values()))
@@ -180,13 +166,11 @@ def update_table(excel_path: str):
     inst_stat["time"] = inst_wise_total.values
     inst_stat["ratio(%)"] = inst_wise_ratio.values
 
-    # inst_stat, indices= __map_minor2major(inst_stat, "소분류_코드", "대분류", classJsons["instCode2Major"])
     indices= __get_indices(classJsons["instCode2Major"])
     for i in range(len(indices)-1):
         inst_stat.iloc[indices[i]:indices[i+1], 4] = inst_stat.iloc[indices[i]:indices[i+1]].loc[:,"time"].sum()
     inst_stat["ratio(%)(중분류)"] = (inst_stat["time(중분류)"]/TOTAL*100).astype(float).round(decimals=2)
 
-    # inst_stat, indices= __map_minor2major(inst_stat, "소분류_코드", "대분류", classJsons["instCode2Major"])
     indices= __get_indices(classJsons["instCode2Major"])
     for i in range(len(indices)-1):
         inst_stat.iloc[indices[i]:indices[i+1], 1] = inst_stat.iloc[indices[i]:indices[i+1]].loc[:,"time"].sum()
@@ -249,6 +233,7 @@ def update_table(excel_path: str):
         mode_stat.iloc[indices[i]:indices[i+1],1] = mode_stat.loc[:,"time"].iloc[indices[i]:indices[i+1]].sum()
     mode_stat["ratio(%)(대분류)"] = (mode_stat["time(대분류)"]/TOTAL*100).astype(float).round(decimals=2)
 
+    mode_stat = mode_stat.astype({"time(대분류)":"int","time":"int"})
     mode_stat = mode_stat.set_index(["대분류", "time(대분류)", "ratio(%)(대분류)", "소분류"])
     ################################################################################
     # 시김새별 통계 테이블 만들기
@@ -260,13 +245,14 @@ def update_table(excel_path: str):
     indices = __get_indices(classJsons["singleTonguingCode2Major"])
     for i in range(len(indices)-1):
         singleTonguing_stat.iloc[indices[i]:indices[i+1], 1] = singleTonguing_stat.loc[:,"time"].iloc[indices[i]:indices[i+1]].sum()
-    singleTonguing_stat.loc[:,"ratio(%)(대분류)"] = (singleTonguing_stat["time(대분류)"]/TOTAL*100).astype(float).round(decimals=2)
+    singleTonguing_stat["ratio(%)(대분류)"] = (singleTonguing_stat["time(대분류)"]/TOTAL*100).astype(float).round(decimals=2)
 
+    singleTonguing_stat = singleTonguing_stat.astype({"time(대분류)":"int","time":"int"})
     singleTonguing_stat = singleTonguing_stat.set_index(["대분류", "time(대분류)", "ratio(%)(대분류)", "소분류"])
     ###################################################################################
     # save
     with pd.ExcelWriter(excel_path, engine='xlsxwriter') as writer:
-        table.to_excel(writer, sheet_name="장르악기분포집계")
+        total_table.to_excel(writer, sheet_name="장르악기분포집계")
         inst_stat.to_excel(writer, sheet_name="악기분포집계")
         genre_stat.to_excel(writer, sheet_name="장르분포집계")
         singleTonguing_stat.to_excel(writer, sheet_name="시김새분포집계")

@@ -1,7 +1,7 @@
 from json_utils import *
 import matplotlib.pyplot as plt
 import cfg
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 import numpy as np
 import os
 import pandas as pd
@@ -11,14 +11,12 @@ from pathlib import Path
 추가고려사항
 --------------------------
 midi_status, score_status, lyrics_status(v)의 진위여부 검증
-orchestration_cd 정체 알고 걸러내야..
 json으로 존재하는 code들 유효한지 검증 (시김새)
 """
 
 class InvalidCounter:
     def __init__(self):
         self.num_null: Dict[str,Union[List[dict],List[str]]] = dict()
-        # self.keys_to_be_checked = ['gukak_beat_cd', 'music_genre_cd', 'instrument_cd', 'main_instrmt_cd', 'mode_cd', 'lyrics_status', 'midi_status']
         self.keys_to_be_checked = ['gukak_beat_cd', 'music_genre_cd', 'instrument_cd', 'mode_cd', 'lyrics_status', 'midi_status']
         self.valid_beat_cd = list(loadjson('classJson/beatCode2Name.json').keys())
         self.valid_genre_cd = list(loadjson('classJson/genreCode2Name.json').keys())
@@ -29,7 +27,7 @@ class InvalidCounter:
         if key not in self.num_null.keys():
             self.num_null[key]=[]
 
-    def check_null(self, key, val, json_name):
+    def check_null(self, key, val, json_name, parent:Optional[str]=None):
         if key=='tempo':
             if val == None or len(val)==0:
                 val = "None" if val==None else "empty_string" if val=="" else val
@@ -43,6 +41,8 @@ class InvalidCounter:
                     return
             else:
                 val = "None" if val==None else "empty_string" if val=="" else val
+                if parent is not None:
+                    val += f'({parent})'
                 if {"name":json_name, key: val} not in self.num_null[key]:
                     self.num_null[key].append({"name":json_name, key: val})
         elif key in self.keys_to_be_checked:
@@ -55,9 +55,6 @@ class InvalidCounter:
             elif key=='instrument_cd':
                 if val not in self.valid_inst_cd:
                     self.num_null[key].append({"name":json_name, key: val})
-            # elif key=='main_instrmt_cd':
-            #     if val not in self.valid_inst_cd:
-            #         self.num_null[key].append({"name":json_name, key: val})
             elif key=='mode_cd':
                 if val not in self.valid_mode_cd:
                     self.num_null[key].append({"name":json_name, key: val})
@@ -99,12 +96,6 @@ class InvalidCounter:
                         null_list = pd.DataFrame(vals)
                     null_list.to_excel(writer,sheet_name=key)
 
-    # def to_DataFrame(self):
-    #     for key,vals in self.num_null.items():
-    #         if len(vals)>0:
-    #             null_list = pd.Series(data=vals,name=key)
-    #             null_list.to_excel(writer,sheet_name=key)
-
 def detect_null():
     counter = InvalidCounter()
     std_json = loadjson(cfg.STD_JSON)
@@ -118,16 +109,6 @@ def detect_null():
                         counter.add_key(k3)
 
     json_files = json2list(cfg.DATASET_DIR)
-
-    # 각 폴더별로 json형식이 유효하지 않은 파일들은 제외
-    if Path(cfg.DATASET_DIR).name=='220930':
-        pass
-    elif Path(cfg.DATASET_DIR).name=='221011':
-        json_files.pop('AP_C11_01549')
-        json_files.pop('AP_F02_00331')
-    elif Path(cfg.DATASET_DIR).name=='221020_1cycle_10p':
-        pass
-    
     for name, json_dict in json_files.items():
         for k1,v1 in json_dict.items():
             counter.check_null(k1, v1, name)
@@ -136,7 +117,7 @@ def detect_null():
                 if isinstance(v2,List):
                     for v2_5 in v2:
                         for k3,v3 in v2_5.items():
-                            counter.check_null(k3, v3, name)
+                            counter.check_null(k3, v3, name, parent=k2)
 
     # counter.plot()
     counter.to_excel()
