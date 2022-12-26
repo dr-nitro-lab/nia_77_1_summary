@@ -51,9 +51,9 @@ def check_missing_files(dataset_path):
     print(f"length of mid_missing: {len(mid_missing)}")
 
     return pd.DataFrame({
-        "wav": pd.Series(sorted(list(wav_missing))),
-        "json": pd.Series(sorted(list(json_missing))),
-        "mid": pd.Series(sorted(list(mid_missing)))
+        "wav": pd.Series(sorted(list(wav_missing)),dtype=float),
+        "json": pd.Series(sorted(list(json_missing)),dtype=float),
+        "mid": pd.Series(sorted(list(mid_missing)),dtype=float)
     })
 
 

@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Dict, Optional, Tuple, List
 import os, glob
 from pathlib import Path
@@ -6,8 +5,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import librosa
-import soundfile as sf
-import wave
 
 from json_utils import json2list
 
@@ -143,7 +140,7 @@ def update_table(excel_path: str):
     inst_wise_ratio = inst_wise_total/TOTAL*100
     inst_wise_ratio =inst_wise_ratio.astype(float).round(decimals=2)
     total_table.loc['ratio(%)'] = inst_wise_ratio
-    genre_wise_ratio = genre_wise_total[:-1]/TOTAL*100
+    genre_wise_ratio = genre_wise_total/TOTAL*100
     genre_wise_ratio = genre_wise_ratio.astype(float).round(decimals=2)
     total_table['ratio(%)'] = genre_wise_ratio
 
@@ -151,7 +148,7 @@ def update_table(excel_path: str):
     for c in ["분류코드","소분류(Genre)","중분류","대분류"]:
         total_table.insert(0,c,total_table.pop(c))
 
-    total_table = total_table.astype({i:"int" for i in idx})
+    # total_table = total_table.astype({i:"int" for i in idx})
     total_table = total_table.set_index(["대분류","중분류","소분류(Genre)"])
 
     ################################################################################

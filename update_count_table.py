@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Dict, Optional, Tuple, List
 
 import pandas as pd
@@ -124,7 +123,7 @@ def update_table(excel_path:str):
     inst_wise_ratio = inst_wise_total/TOTAL*100
     inst_wise_ratio =inst_wise_ratio.astype(float).round(decimals=2)
     total_table.loc['ratio(%)'] = inst_wise_ratio
-    genre_wise_ratio = genre_wise_total[:-1]/TOTAL*100
+    genre_wise_ratio = genre_wise_total/TOTAL*100
     genre_wise_ratio = genre_wise_ratio.astype(float).round(decimals=2)
     total_table['ratio(%)'] = genre_wise_ratio
 

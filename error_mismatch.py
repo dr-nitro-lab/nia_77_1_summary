@@ -1,7 +1,5 @@
-import logging
 import os, glob
-import music21, mido
-import wave
+import mido
 import soundfile as sf
 import pandas as pd
 import cfg
@@ -26,11 +24,8 @@ def mismatch_error_tables():
     for JSON_FILE in JSON_FILES:
         # load json & wav files on memory
         FILE = Path(JSON_FILE).stem
-        if Path(cfg.DATASET_DIR).stem == "221011" and FILE in ["AP_C11_01549","AP_F02_00331"]:
-            print("invlid file", FILE)
-            continue
-
         WAV_FILE = JSON_FILE.replace(".json", ".wav")
+
         if WAV_FILE in WAV_FILES:
             try:
                 with sf.SoundFile(WAV_FILE) as sf_reader:
@@ -67,7 +62,8 @@ def mismatch_error_tables():
         # compare json & wav
         if channel_wav != channel_json:
             channel_error = pd.concat([channel_error, pd.DataFrame({"json":channel_json,"wav":channel_wav},index=[FILE])])
-        if (duration_wav - duration_json) > cfg.DURATION_TOLERANCE: # 1초 이상 차이나면 다른 것으로 판단
+        # if (duration_wav - duration_json) > cfg.DURATION_TOLERANCE: # 1초 이상 차이나면 다른 것으로 판단
+        if round(duration_wav) != round(duration_json): # 정수로 rounding 했을 때 같은지/다른지 판단
             play_time_error = pd.concat([play_time_error, pd.DataFrame({"json":duration_json,"wav":duration_wav},index=[FILE])])
         if sampling_rate_wav != sampling_rate_json:
             sample_rate_error = pd.concat([sample_rate_error, pd.DataFrame({"json":sampling_rate_json,"wav":sampling_rate_wav},index=[FILE])])
